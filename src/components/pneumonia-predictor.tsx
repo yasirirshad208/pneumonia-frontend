@@ -1,6 +1,7 @@
+
 "use client";
 
-import { useState, ChangeEvent, FormEvent } from 'react';
+import { useState, ChangeEvent, FormEvent, DragEvent } from 'react';
 import Image from 'next/image';
 import { pneumoniaPrediction, type PneumoniaPredictionOutput } from '@/ai/flows/pneumonia-prediction';
 import { Button } from '@/components/ui/button';
@@ -9,17 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { UploadCloud, FileScan, Loader2, AlertTriangle, FlaskConical } from 'lucide-react';
-
-const fileToDataUri = (file: File): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      resolve(reader.result as string);
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-};
+import { cn } from '@/lib/utils';
 
 export default function PneumoniaPredictor() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -27,10 +18,17 @@ export default function PneumoniaPredictor() {
   const [predictionResult, setPredictionResult] = useState<PneumoniaPredictionOutput | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
 
-  const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
+  const processFile = (file: File | undefined | null) => {
+    if (file && (file.type === "image/png" || file.type === "image/jpeg" || file.type === "image/jpg")) {
+      // Basic size check (e.g., 10MB)
+      if (file.size > 10 * 1024 * 1024) {
+          setError("File is too large. Maximum size is 10MB.");
+          setSelectedFile(null);
+          setPreviewUrl(null);
+          return;
+      }
       setSelectedFile(file);
       setPredictionResult(null);
       setError(null);
@@ -42,25 +40,32 @@ export default function PneumoniaPredictor() {
     } else {
       setSelectedFile(null);
       setPreviewUrl(null);
+      if (file) {
+        setError("Invalid file type. Please upload a PNG, JPG, or JPEG image.");
+      }
+    }
+  };
+
+  const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+    processFile(event.target.files?.[0]);
+    if (event.target) {
+      event.target.value = ""; // Reset input to allow re-selecting the same file
     }
   };
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
-  
+
     if (!selectedFile) {
       setError("Please select an image file first.");
       return;
     }
-  
+
     setIsLoading(true);
     setError(null);
     setPredictionResult(null);
-  
+
     try {
-      // The Genkit flow expects a File object, not a data URI for this specific backend.
-      // The backend at 'https://pneumonia-backend-vvzs.onrender.com/predict'
-      // is designed to receive multipart/form-data with a File object.
       const result = await pneumoniaPrediction({ imageFile: selectedFile });
       setPredictionResult(result);
     } catch (e) {
@@ -69,7 +74,6 @@ export default function PneumoniaPredictor() {
       if (e instanceof Error) {
         errorMessage = e.message;
       }
-      // Check if the error message already contains details from the flow
       if (!errorMessage.includes("Server response:") && (e as any)?.cause) {
          errorMessage += ` Details: ${ (e as any).cause}`;
       }
@@ -78,7 +82,38 @@ export default function PneumoniaPredictor() {
       setIsLoading(false);
     }
   };
-  
+
+  const handleDragEnter = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(true);
+  };
+
+  const handleDragLeave = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // Check if the drag is leaving to an element outside the dropzone
+    const dropzone = e.currentTarget;
+    if (!dropzone.contains(e.relatedTarget as Node)) {
+        setIsDraggingOver(false);
+    }
+  };
+
+  const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isDraggingOver) setIsDraggingOver(true); // Ensure it's set if missed by enter
+  };
+
+  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(false);
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      processFile(files[0]);
+    }
+  };
 
   return (
     <Card className="w-full max-w-2xl mx-auto shadow-xl">
@@ -94,23 +129,53 @@ export default function PneumoniaPredictor() {
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-2">
-            <Label htmlFor="xray-upload" className="text-base">Upload X-Ray Image</Label>
-            <div className="flex flex-col sm:flex-row items-center gap-4">
-              <Label 
-                htmlFor="xray-upload" 
-                className="flex-grow w-full sm:w-auto cursor-pointer inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 text-primary-foreground h-10 px-4 py-2 bg-gradient-to-r from-primary/80 to-primary/70 hover:from-primary/90 hover:to-primary/80 shadow-md hover:shadow-lg transform hover:scale-[1.03] transition-all duration-300 ease-in-out"
-              >
-                <UploadCloud className="mr-2 h-5 w-5" /> Choose Image
-              </Label>
-              <Input 
-                id="xray-upload" 
-                type="file" 
-                className="hidden" 
-                onChange={handleFileChange} 
-                accept="image/png, image/jpeg, image/jpg" 
+            <Label htmlFor="xray-upload-input" className="text-base">Upload X-Ray Image</Label>
+            <div
+              id="dropzone"
+              onDragEnter={handleDragEnter}
+              onDragLeave={handleDragLeave}
+              onDragOver={handleDragOver}
+              onDrop={handleDrop}
+              onClick={() => document.getElementById('xray-upload-input')?.click()}
+              className={cn(
+                "mt-1 flex justify-center items-center flex-col px-6 pt-5 pb-6 border-2 border-dashed rounded-md cursor-pointer transition-colors duration-200 ease-in-out",
+                isDraggingOver ? "border-primary bg-accent" : "border-input hover:border-primary/70",
+                selectedFile && !isDraggingOver ? "border-primary bg-primary/5" : "" // Visual cue for selected file
+              )}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') document.getElementById('xray-upload-input')?.click();}}
+              aria-label="Image upload dropzone"
+            >
+              <div className="space-y-1 text-center">
+                <UploadCloud className={cn("mx-auto h-12 w-12", isDraggingOver ? "text-primary" : "text-muted-foreground")} />
+                <div className="flex text-sm text-muted-foreground items-center justify-center">
+                  <Label
+                    htmlFor="xray-upload-input"
+                    className={cn(
+                        "relative cursor-pointer rounded-md font-medium text-primary hover:text-primary/80 focus-within:outline-none focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2",
+                        isDraggingOver ? "text-accent-foreground" : ""
+                    )}
+                  >
+                    <span>Upload a file</span>
+                  </Label>
+                  <p className="pl-1">or drag and drop</p>
+                </div>
+                <p className="text-xs text-muted-foreground">PNG, JPG, JPEG up to 10MB</p>
+              </div>
+              <Input
+                id="xray-upload-input"
+                type="file"
+                className="hidden"
+                onChange={handleFileChange}
+                accept="image/png, image/jpeg, image/jpg"
               />
-              {selectedFile && <span className="text-sm text-muted-foreground truncate max-w-[calc(100%-1rem)] sm:max-w-xs">{selectedFile.name}</span>}
             </div>
+            {selectedFile && (
+              <p className="mt-2 text-sm text-muted-foreground text-center">
+                Selected file: {selectedFile.name}
+              </p>
+            )}
           </div>
 
           {previewUrl && (
@@ -156,13 +221,13 @@ export default function PneumoniaPredictor() {
             </CardHeader>
             <CardContent className="space-y-3 text-base">
               <p>
-                <strong>Predicted Class:</strong> 
+                <strong>Predicted Class:</strong>
                 <span className={`ml-2 font-semibold ${predictionResult.predicted_class === 'PNEUMONIA' ? 'text-destructive' : 'text-green-600'}`}>
                   {predictionResult.predicted_class}
                 </span>
               </p>
               <p>
-                <strong>Confidence:</strong> 
+                <strong>Confidence:</strong>
                 <span className="ml-2 font-semibold">
                   {typeof predictionResult.confidence === 'number' ? predictionResult.confidence.toFixed(2) : 'N/A'}%
                 </span>
