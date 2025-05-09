@@ -1,19 +1,28 @@
 
-"use client";
-
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import PneumoniaPredictor from '@/components/pneumonia-predictor';
+import SiteHeader from '@/components/site-header';
 
 export default function HomePage() {
-  const router = useRouter();
-
-  useEffect(() => {
-    // Navigate to /predict as soon as this page component mounts.
-    // The global splash screen (from RootLayout) will cover this transition.
-    router.push('/predict');
-  }, [router]); // router is a stable dependency from Next.js navigation hooks
-
-  // This page is only for redirection, so it doesn't need to render anything itself.
-  // The global splash screen will be visible.
-  return null;
+  return (
+    <div className="flex flex-col min-h-screen bg-background">
+      <SiteHeader />
+      <main className="flex-grow container mx-auto px-4 py-8">
+        <PneumoniaPredictor />
+      </main>
+      <footer className="py-6 text-center text-sm text-muted-foreground border-t">
+        <div className="container mx-auto flex flex-col md:flex-row justify-between items-center">
+          <p className="mb-2 md:mb-0">PneumoCheck &copy; {new Date().getFullYear()}</p>
+          {/* 
+          Social media links can be added here if needed in the future
+          <div className="flex space-x-4">
+            <Link href="#" className="text-muted-foreground hover:text-primary transition-colors"><Facebook size={20} /></Link>
+            <Link href="#" className="text-muted-foreground hover:text-primary transition-colors"><Twitter size={20} /></Link>
+            <Link href="#" className="text-muted-foreground hover:text-primary transition-colors"><Instagram size={20} /></Link>
+          </div>
+          */}
+        </div>
+      </footer>
+    </div>
+  );
 }
+
