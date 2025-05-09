@@ -36,31 +36,16 @@ const pneumoniaPredictionFlow = ai.defineFlow(
     outputSchema: PneumoniaPredictionOutputSchema,
   },
   async input => {
-    const formData = new FormData();
-    
-    const [metadataPart, base64Image] = input.imageDataUri.split(',');
-    if (!metadataPart || !base64Image) {
-      throw new Error('Invalid imageDataUri format. Expected format: "data:<mimetype>;base64,<encoded_data>"');
-    }
-    
-    const mimeTypeMatch = metadataPart.match(/data:(.*);base64/);
-    if (!mimeTypeMatch || !mimeTypeMatch[1]) {
-        throw new Error('Could not extract MIME type from imageDataUri.');
-    }
-    const mimeType = mimeTypeMatch[1];
-
-    const imageBuffer = Buffer.from(base64Image, 'base64');
-    const blob = new Blob([imageBuffer], { type: mimeType });
-
-    // Determine a more appropriate filename based on MIME type if possible, or use a generic one.
-    const extension = mimeType.split('/')[1] || 'bin';
-    const filename = `image.${extension}`;
-
-    formData.append('image', blob, filename);
+    const payload = {
+      imageDataUri: input.imageDataUri,
+    };
 
     const response = await fetch('https://pneumonia-backend-vvzs.onrender.com/predict', {
       method: 'POST',
-      body: formData,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
     });
 
     if (!response.ok) {
@@ -77,4 +62,3 @@ const pneumoniaPredictionFlow = ai.defineFlow(
     return data;
   }
 );
-
