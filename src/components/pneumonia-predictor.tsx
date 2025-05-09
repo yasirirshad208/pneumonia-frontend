@@ -54,33 +54,43 @@ export default function PneumoniaPredictor() {
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
-
+  
     if (!selectedFile) {
       setError("Please select an image file first.");
       return;
     }
-
+  
     setIsLoading(true);
     setError(null);
     setPredictionResult(null);
-
+  
     try {
-      const result = await pneumoniaPrediction({ imageFile: selectedFile });
-      setPredictionResult(result);
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+  
+      const response = await fetch('https://pneumonia-backend-vvzs.onrender.com/predict', {
+        method: 'POST',
+        body: formData,
+      });
+  
+      if (!response.ok) {
+        let errorBody = '';
+        try {
+          errorBody = await response.text();
+        } catch (e) {}
+        throw new Error(`HTTP error! status: ${response.status}. Server response: ${errorBody}`);
+      }
+  
+      const data = await response.json(); // { predicted_class: string, confidence: number }
+      setPredictionResult(data);
     } catch (e) {
       console.error("Prediction error:", e);
-      let errorMessage = "An unknown error occurred during prediction.";
-      if (e instanceof Error) {
-        errorMessage = e.message;
-      }
-      if (errorMessage && !errorMessage.includes("Server response:") && (e as any)?.cause) {
-         errorMessage += ` Details: ${ (e as any).cause}`;
-      }
-      setError(errorMessage);
+      setError(e instanceof Error ? e.message : "An unknown error occurred during prediction.");
     } finally {
       setIsLoading(false);
     }
   };
+  
 
   const handleDragEnter = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
