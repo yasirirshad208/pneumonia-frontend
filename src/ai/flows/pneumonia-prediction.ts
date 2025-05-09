@@ -37,11 +37,26 @@ const pneumoniaPredictionFlow = ai.defineFlow(
   },
   async input => {
     const formData = new FormData();
-    const base64Image = input.imageDataUri.split(',')[1];
-    const imageBuffer = Buffer.from(base64Image, 'base64');
-    const blob = new Blob([imageBuffer]);
+    
+    const [metadataPart, base64Image] = input.imageDataUri.split(',');
+    if (!metadataPart || !base64Image) {
+      throw new Error('Invalid imageDataUri format. Expected format: "data:<mimetype>;base64,<encoded_data>"');
+    }
+    
+    const mimeTypeMatch = metadataPart.match(/data:(.*);base64/);
+    if (!mimeTypeMatch || !mimeTypeMatch[1]) {
+        throw new Error('Could not extract MIME type from imageDataUri.');
+    }
+    const mimeType = mimeTypeMatch[1];
 
-    formData.append('image', blob, 'image.png');
+    const imageBuffer = Buffer.from(base64Image, 'base64');
+    const blob = new Blob([imageBuffer], { type: mimeType });
+
+    // Determine a more appropriate filename based on MIME type if possible, or use a generic one.
+    const extension = mimeType.split('/')[1] || 'bin';
+    const filename = `image.${extension}`;
+
+    formData.append('image', blob, filename);
 
     const response = await fetch('https://pneumonia-backend-vvzs.onrender.com/predict', {
       method: 'POST',
@@ -49,10 +64,17 @@ const pneumoniaPredictionFlow = ai.defineFlow(
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      let errorBody = '';
+      try {
+        errorBody = await response.text(); 
+      } catch (e) {
+        // Ignore if can't read body, the status itself is the primary info
+      }
+      throw new Error(`HTTP error! status: ${response.status}. Server response: ${errorBody}`);
     }
 
     const data = await response.json() as PneumoniaPredictionOutput;
     return data;
   }
 );
+
