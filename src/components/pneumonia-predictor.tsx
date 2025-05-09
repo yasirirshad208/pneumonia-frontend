@@ -22,7 +22,6 @@ export default function PneumoniaPredictor() {
 
   const processFile = (file: File | undefined | null) => {
     if (file && (file.type === "image/png" || file.type === "image/jpeg" || file.type === "image/jpg")) {
-      // Basic size check (e.g., 10MB)
       if (file.size > 10 * 1024 * 1024) {
           setError("File is too large. Maximum size is 10MB.");
           setSelectedFile(null);
@@ -49,7 +48,7 @@ export default function PneumoniaPredictor() {
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     processFile(event.target.files?.[0]);
     if (event.target) {
-      event.target.value = ""; // Reset input to allow re-selecting the same file
+      event.target.value = ""; 
     }
   };
 
@@ -74,7 +73,7 @@ export default function PneumoniaPredictor() {
       if (e instanceof Error) {
         errorMessage = e.message;
       }
-      if (!errorMessage.includes("Server response:") && (e as any)?.cause) {
+      if (errorMessage && !errorMessage.includes("Server response:") && (e as any)?.cause) {
          errorMessage += ` Details: ${ (e as any).cause}`;
       }
       setError(errorMessage);
@@ -92,7 +91,6 @@ export default function PneumoniaPredictor() {
   const handleDragLeave = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
-    // Check if the drag is leaving to an element outside the dropzone
     const dropzone = e.currentTarget;
     if (!dropzone.contains(e.relatedTarget as Node)) {
         setIsDraggingOver(false);
@@ -102,7 +100,7 @@ export default function PneumoniaPredictor() {
   const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!isDraggingOver) setIsDraggingOver(true); // Ensure it's set if missed by enter
+    if (!isDraggingOver) setIsDraggingOver(true);
   };
 
   const handleDrop = (e: DragEvent<HTMLDivElement>) => {
@@ -138,31 +136,51 @@ export default function PneumoniaPredictor() {
               onDrop={handleDrop}
               onClick={() => document.getElementById('xray-upload-input')?.click()}
               className={cn(
-                "mt-1 flex justify-center items-center flex-col px-6 pt-5 pb-6 border-2 border-dashed rounded-md cursor-pointer transition-colors duration-200 ease-in-out",
-                isDraggingOver ? "border-primary bg-accent" : "border-input hover:border-primary/70",
-                selectedFile && !isDraggingOver ? "border-primary bg-primary/5" : "" // Visual cue for selected file
+                "mt-1 flex justify-center items-center border-2 border-dashed rounded-md cursor-pointer transition-colors duration-200 ease-in-out overflow-hidden",
+                // Dragging state
+                isDraggingOver 
+                  ? `border-primary bg-accent ${previewUrl ? 'p-1 aspect-[16/10]' : 'flex-col px-6 pt-5 pb-6 h-48 sm:h-64'}`
+                  : [ // Not dragging
+                      previewUrl 
+                        ? "p-1 aspect-[16/10] border-input hover:border-primary/70" // Preview shown
+                        : [ // No preview
+                            "flex-col px-6 pt-5 pb-6 h-48 sm:h-64 border-input hover:border-primary/70",
+                            selectedFile && "border-primary bg-primary/5" // File selected, no preview
+                          ]
+                    ]
               )}
               role="button"
               tabIndex={0}
               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') document.getElementById('xray-upload-input')?.click();}}
               aria-label="Image upload dropzone"
             >
-              <div className="space-y-1 text-center">
-                <UploadCloud className={cn("mx-auto h-12 w-12", isDraggingOver ? "text-primary" : "text-muted-foreground")} />
-                <div className="flex text-sm text-muted-foreground items-center justify-center">
-                  <Label
-                    htmlFor="xray-upload-input"
-                    className={cn(
-                        "relative cursor-pointer rounded-md font-medium text-primary hover:text-primary/80 focus-within:outline-none focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2",
-                        isDraggingOver ? "text-accent-foreground" : ""
-                    )}
-                  >
-                    <span>Upload a file</span>
-                  </Label>
-                  <p className="pl-1">or drag and drop</p>
+              {previewUrl ? (
+                <Image
+                  src={previewUrl}
+                  alt="X-Ray Preview"
+                  width={500} 
+                  height={500} 
+                  className="rounded-md object-contain w-full h-full"
+                  data-ai-hint="xray lung"
+                />
+              ) : (
+                <div className="space-y-1 text-center">
+                  <UploadCloud className={cn("mx-auto h-12 w-12", isDraggingOver ? "text-primary" : "text-muted-foreground")} />
+                  <div className="flex text-sm text-muted-foreground items-center justify-center">
+                    <Label
+                      htmlFor="xray-upload-input"
+                      className={cn(
+                          "relative cursor-pointer rounded-md font-medium text-primary hover:text-primary/80 focus-within:outline-none focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2",
+                          isDraggingOver ? "text-accent-foreground" : ""
+                      )}
+                    >
+                      <span>Upload a file</span>
+                    </Label>
+                    <p className="pl-1">or drag and drop</p>
+                  </div>
+                  <p className="text-xs text-muted-foreground">PNG, JPG, JPEG up to 10MB</p>
                 </div>
-                <p className="text-xs text-muted-foreground">PNG, JPG, JPEG up to 10MB</p>
-              </div>
+              )}
               <Input
                 id="xray-upload-input"
                 type="file"
@@ -177,20 +195,7 @@ export default function PneumoniaPredictor() {
               </p>
             )}
           </div>
-
-          {previewUrl && (
-            <div className="mt-4 border rounded-lg p-2 bg-muted/50">
-              <Image
-                src={previewUrl}
-                alt="X-Ray Preview"
-                width={500}
-                height={500}
-                className="rounded-md object-contain max-h-[300px] sm:max-h-[400px] w-full"
-                data-ai-hint="xray lung"
-              />
-            </div>
-          )}
-
+          
           <Button type="submit" className="w-full sm:w-auto" disabled={isLoading || !selectedFile}>
             {isLoading ? (
               <>
