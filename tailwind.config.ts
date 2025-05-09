@@ -87,17 +87,24 @@ export default {
           '0%': { opacity: '0', transform: 'translateY(20px)' },
           '100%': { opacity: '1', transform: 'translateY(0)' },
         },
-        pulseLarge: {
-          '0%, 100%': { transform: 'scale(1)', opacity: '1' },
-          '50%': { transform: 'scale(1.15)', opacity: '0.8' },
+        pulseGrowAndSettle: {
+          '0%': { opacity: '0', transform: 'scale(0.7)' },
+          '60%': { opacity: '1', transform: 'scale(1.1)' },
+          '80%': { transform: 'scale(0.95)' },
+          '100%': { opacity: '1', transform: 'scale(1)' },
+        },
+        ripple: {
+          '0%': { transform: 'scale(0.8)', opacity: '0.5' },
+          '100%': { transform: 'scale(2.5)', opacity: '0' }, // Increased scale for more pronounced ripple
         }
   		},
   		animation: {
   			'accordion-down': 'accordion-down 0.2s ease-out',
   			'accordion-up': 'accordion-up 0.2s ease-out',
-        fadeInUp: 'fadeInUp 1s ease-out forwards',
-        'fadeInUp-delayed-1': 'fadeInUp 1s ease-out 0.4s forwards',
-        pulseLarge: 'pulseLarge 2.5s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+        fadeInUp: 'fadeInUp 0.8s ease-out forwards',
+        'fadeInUp-delayed-1': 'fadeInUp 0.8s ease-out 0.4s forwards', // Keep if used elsewhere, or adjust specific component delays
+        pulseGrowAndSettle: 'pulseGrowAndSettle 1.5s cubic-bezier(0.4, 0, 0.2, 1) forwards',
+        ripple: 'ripple 2s cubic-bezier(0.4, 0, 0.2, 1) infinite', // Adjusted duration
   		}
   	}
   },
