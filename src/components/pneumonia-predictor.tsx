@@ -47,19 +47,36 @@ export default function PneumoniaPredictor() {
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
+  
     if (!selectedFile) {
       setError("Please select an image file first.");
       return;
     }
-
+  
     setIsLoading(true);
     setError(null);
     setPredictionResult(null);
-
+  
     try {
-      const imageDataUri = await fileToDataUri(selectedFile);
-      const result = await pneumoniaPrediction({ imageDataUri });
-      setPredictionResult(result);
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+  
+      const response = await fetch('https://pneumonia-backend-vvzs.onrender.com/predict', {
+        method: 'POST',
+        body: formData,
+        redirect: 'follow',
+      });
+  
+      if (!response.ok) {
+        let errorBody = '';
+        try {
+          errorBody = await response.text();
+        } catch (e) {}
+        throw new Error(`HTTP error! status: ${response.status}. Server response: ${errorBody}`);
+      }
+  
+      const data = await response.json(); // { predicted_class: string, confidence: number }
+      setPredictionResult(data);
     } catch (e) {
       console.error("Prediction error:", e);
       setError(e instanceof Error ? e.message : "An unknown error occurred during prediction.");
@@ -67,6 +84,7 @@ export default function PneumoniaPredictor() {
       setIsLoading(false);
     }
   };
+  
 
   return (
     <Card className="w-full max-w-2xl mx-auto shadow-xl">

@@ -1,21 +1,13 @@
 'use server';
+
+import { ai } from '@/ai/genkit';
+import { z } from 'genkit';
+
 /**
- * @fileOverview This file defines a Genkit flow for predicting pneumonia from chest X-ray images.
- *
- * - pneumoniaPrediction - A function that takes an image and returns a pneumonia prediction with a confidence score.
- * - PneumoniaPredictionInput - The input type for the pneumoniaPrediction function.
- * - PneumoniaPredictionOutput - The return type for the pneumoniaPrediction function.
+ * Input schema expects a File object (e.g., from a file input).
  */
-
-import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
-
 const PneumoniaPredictionInputSchema = z.object({
-  imageDataUri: z
-    .string()
-    .describe(
-      "A chest X-ray image, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
-    ),
+  imageFile: z.any().describe('A chest X-ray image File object.'),
 });
 export type PneumoniaPredictionInput = z.infer<typeof PneumoniaPredictionInputSchema>;
 
@@ -36,25 +28,19 @@ const pneumoniaPredictionFlow = ai.defineFlow(
     outputSchema: PneumoniaPredictionOutputSchema,
   },
   async input => {
-    const payload = {
-      imageDataUri: input.imageDataUri,
-    };
+    const formData = new FormData();
+    formData.append('file', input.imageFile); // Directly append the File object
 
     const response = await fetch('https://pneumonia-backend-vvzs.onrender.com/predict', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
+      body: formData, // fetch auto-sets correct headers for multipart/form-data
     });
 
     if (!response.ok) {
       let errorBody = '';
       try {
-        errorBody = await response.text(); 
-      } catch (e) {
-        // Ignore if can't read body, the status itself is the primary info
-      }
+        errorBody = await response.text();
+      } catch (e) {}
       throw new Error(`HTTP error! status: ${response.status}. Server response: ${errorBody}`);
     }
 
