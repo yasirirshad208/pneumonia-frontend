@@ -58,28 +58,22 @@ export default function PneumoniaPredictor() {
     setPredictionResult(null);
   
     try {
-      const formData = new FormData();
-      formData.append('file', selectedFile);
-  
-      const response = await fetch('https://pneumonia-backend-vvzs.onrender.com/predict', {
-        method: 'POST',
-        body: formData,
-        redirect: 'follow',
-      });
-  
-      if (!response.ok) {
-        let errorBody = '';
-        try {
-          errorBody = await response.text();
-        } catch (e) {}
-        throw new Error(`HTTP error! status: ${response.status}. Server response: ${errorBody}`);
-      }
-  
-      const data = await response.json(); // { predicted_class: string, confidence: number }
-      setPredictionResult(data);
+      // The Genkit flow expects a File object, not a data URI for this specific backend.
+      // The backend at 'https://pneumonia-backend-vvzs.onrender.com/predict'
+      // is designed to receive multipart/form-data with a File object.
+      const result = await pneumoniaPrediction({ imageFile: selectedFile });
+      setPredictionResult(result);
     } catch (e) {
       console.error("Prediction error:", e);
-      setError(e instanceof Error ? e.message : "An unknown error occurred during prediction.");
+      let errorMessage = "An unknown error occurred during prediction.";
+      if (e instanceof Error) {
+        errorMessage = e.message;
+      }
+      // Check if the error message already contains details from the flow
+      if (!errorMessage.includes("Server response:") && (e as any)?.cause) {
+         errorMessage += ` Details: ${ (e as any).cause}`;
+      }
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -104,7 +98,7 @@ export default function PneumoniaPredictor() {
             <div className="flex flex-col sm:flex-row items-center gap-4">
               <Label 
                 htmlFor="xray-upload" 
-                className="flex-grow w-full sm:w-auto cursor-pointer inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
+                className="flex-grow w-full sm:w-auto cursor-pointer inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 text-primary-foreground h-10 px-4 py-2 bg-gradient-to-r from-primary/80 to-primary/70 hover:from-primary/90 hover:to-primary/80 shadow-md hover:shadow-lg transform hover:scale-[1.03] transition-all duration-300 ease-in-out"
               >
                 <UploadCloud className="mr-2 h-5 w-5" /> Choose Image
               </Label>
@@ -115,7 +109,7 @@ export default function PneumoniaPredictor() {
                 onChange={handleFileChange} 
                 accept="image/png, image/jpeg, image/jpg" 
               />
-              {selectedFile && <span className="text-sm text-muted-foreground truncate">{selectedFile.name}</span>}
+              {selectedFile && <span className="text-sm text-muted-foreground truncate max-w-[calc(100%-1rem)] sm:max-w-xs">{selectedFile.name}</span>}
             </div>
           </div>
 
@@ -170,7 +164,7 @@ export default function PneumoniaPredictor() {
               <p>
                 <strong>Confidence:</strong> 
                 <span className="ml-2 font-semibold">
-                  {predictionResult.confidence.toFixed(2)}%
+                  {typeof predictionResult.confidence === 'number' ? predictionResult.confidence.toFixed(2) : 'N/A'}%
                 </span>
               </p>
             </CardContent>
